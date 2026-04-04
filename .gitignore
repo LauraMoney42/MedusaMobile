@@ -1,0 +1,35 @@
+# ── Secrets & credentials ────────────────────────────────────────────────────
+local.properties
+*.jks
+*.keystore
+google-services.json
+*.env
+
+# ── Android build artifacts ───────────────────────────────────────────────────
+.gradle/
+build/
+**/build/
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# ── IDE files ─────────────────────────────────────────────────────────────────
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+
+# ── Kotlin / Android ─────────────────────────────────────────────────────────
+captures/
+.externalNativeBuild/
+.cxx/
+*.hprof
+
+# ── macOS ─────────────────────────────────────────────────────────────────────
+.DS_Store
+**/.DS_Store
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+*.log

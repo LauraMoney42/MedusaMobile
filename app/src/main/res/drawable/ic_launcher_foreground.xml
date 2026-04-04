@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Medusa logo foreground — serpent "M" in electric green -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Circle background accent -->
+    <path
+        android:fillColor="#00E676"
+        android:pathData="M54,54m-36,0a36,36 0,1 1,72 0a36,36 0,1 1,-72 0" />
+    <!-- "M" letterform -->
+    <path
+        android:fillColor="#0A0F0A"
+        android:pathData="M34,70V38l10,16 10,-16v32h-6V52l-4,7 -4,-7v18z" />
+</vector>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base theme for splash/launch — Compose takes over immediately via MedusaMobileTheme -->
+    <style name="Theme.MedusaMobile" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">@color/medusa_background</item>
+        <item name="android:navigationBarColor">@color/medusa_background</item>
+        <item name="android:windowBackground">@color/medusa_background</item>
+    </style>
+</resources>
