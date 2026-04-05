@@ -71,7 +71,7 @@ class GoogleSheetsTool(
     ): ToolResult = withContext(Dispatchers.IO) {
         val token = getSheetsToken()
             ?: return@withContext ToolResult.failure(
-                "Google account not connected. Sign in via Settings → Connect Google Account."
+                "Google account not connected. A sign-in prompt has been shown — please approve access and try again."
             )
 
         try {
@@ -142,7 +142,7 @@ class GoogleSheetsTool(
         valuesJson: String   // JSON 2D array: [["Name", "Age"], ["Alice", "30"]]
     ): ToolResult = withContext(Dispatchers.IO) {
         val token = getSheetsToken()
-            ?: return@withContext ToolResult.failure("Google account not connected.")
+            ?: return@withContext ToolResult.failure("Google account not connected. A sign-in prompt has been shown — please approve access and try again.")
 
         try {
             val valuesArray = JSONArray(valuesJson)
@@ -197,7 +197,7 @@ class GoogleSheetsTool(
         valuesJson: String
     ): ToolResult = withContext(Dispatchers.IO) {
         val token = getSheetsToken()
-            ?: return@withContext ToolResult.failure("Google account not connected.")
+            ?: return@withContext ToolResult.failure("Google account not connected. A sign-in prompt has been shown — please approve access and try again.")
 
         try {
             val valuesArray = JSONArray(valuesJson)
@@ -252,7 +252,7 @@ class GoogleSheetsTool(
         headers: List<String> = emptyList()
     ): ToolResult = withContext(Dispatchers.IO) {
         val token = getSheetsToken()
-            ?: return@withContext ToolResult.failure("Google account not connected.")
+            ?: return@withContext ToolResult.failure("Google account not connected. A sign-in prompt has been shown — please approve access and try again.")
 
         try {
             // Build request body with title and optional header row
@@ -335,7 +335,7 @@ class GoogleSheetsTool(
      */
     suspend fun findSpreadsheets(query: String, limit: Int = 10): ToolResult = withContext(Dispatchers.IO) {
         val token = getSheetsToken()
-            ?: return@withContext ToolResult.failure("Google account not connected.")
+            ?: return@withContext ToolResult.failure("Google account not connected. A sign-in prompt has been shown — please approve access and try again.")
 
         try {
             val q = buildString {

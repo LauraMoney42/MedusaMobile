@@ -128,8 +128,14 @@ class GoogleAuthManager(private val context: Context) {
      */
     suspend fun getAccessToken(): String? = withContext(Dispatchers.IO) {
         try {
-            // Check for existing sign-in
-            val account = GoogleSignIn.getLastSignedInAccount(context) ?: return@withContext null
+            // Check for existing sign-in.
+            // If no account found (never signed in, or signed out), signal the UI
+            // to show the in-context sign-in dialog — same path as UserRecoverableAuthException.
+            val account = GoogleSignIn.getLastSignedInAccount(context)
+            if (account == null) {
+                _reAuthNeeded.value = true
+                return@withContext null
+            }
 
             // Get fresh access token using GoogleAuthUtil.
             // All scopes (Docs, Drive, Gmail, Sheets) are bundled in a single token request —

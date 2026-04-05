@@ -114,7 +114,7 @@ class EmailTool(
     ): ToolResult = withContext(Dispatchers.IO) {
         val token = getGmailToken()
             ?: return@withContext ToolResult.failure(
-                "Google account not connected. Ask user to sign in via Settings → Connect Google Account."
+                "Google account not connected. A sign-in prompt has been shown — please approve access and try again."
             )
 
         try {
@@ -220,7 +220,7 @@ class EmailTool(
     suspend fun gmailRead(messageId: String): ToolResult = withContext(Dispatchers.IO) {
         val token = getGmailToken()
             ?: return@withContext ToolResult.failure(
-                "Google account not connected."
+                "Google account not connected. A sign-in prompt has been shown — please approve access and try again."
             )
 
         try {
@@ -287,7 +287,7 @@ class EmailTool(
     ): ToolResult = withContext(Dispatchers.IO) {
         val token = getGmailToken()
             ?: return@withContext ToolResult.failure(
-                "Google account not connected."
+                "Google account not connected. A sign-in prompt has been shown — please approve access and try again."
             )
 
         try {

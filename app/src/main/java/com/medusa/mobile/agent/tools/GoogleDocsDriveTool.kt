@@ -65,7 +65,7 @@ class GoogleDocsDriveTool(
     suspend fun createDoc(title: String, content: String): ToolResult = withContext(Dispatchers.IO) {
         val token = authManager.getValidToken()
             ?: return@withContext ToolResult.failure(
-                "Google account not connected. The user needs to sign in via Settings → Connect Google Account."
+                "Google account not connected. A sign-in prompt has been shown — please approve access and try again."
             )
 
         try {
@@ -128,7 +128,7 @@ class GoogleDocsDriveTool(
     ): ToolResult = withContext(Dispatchers.IO) {
         val token = authManager.getValidToken()
             ?: return@withContext ToolResult.failure(
-                "Google account not connected. The user needs to sign in via Settings → Connect Google Account."
+                "Google account not connected. A sign-in prompt has been shown — please approve access and try again."
             )
 
         try {
@@ -203,7 +203,7 @@ class GoogleDocsDriveTool(
     ): ToolResult = withContext(Dispatchers.IO) {
         val token = authManager.getValidToken()
             ?: return@withContext ToolResult.failure(
-                "Google account not connected."
+                "Google account not connected. A sign-in prompt has been shown — please approve access and try again."
             )
 
         try {
@@ -245,7 +245,7 @@ class GoogleDocsDriveTool(
     ): ToolResult = withContext(Dispatchers.IO) {
         val token = authManager.getValidToken()
             ?: return@withContext ToolResult.failure(
-                "Google account not connected."
+                "Google account not connected. A sign-in prompt has been shown — please approve access and try again."
             )
 
         try {
