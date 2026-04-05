@@ -6,6 +6,20 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+// mm-env-001: Read ANTHROPIC_API_KEY from .env (gitignored) so the user never
+// has to touch source code. Falls back to empty string if .env is absent.
+// Usage: add ANTHROPIC_API_KEY=sk-ant-... to MedusaMobile/.env
+val envApiKey: String = run {
+    val envFile = rootProject.file(".env")
+    if (envFile.exists()) {
+        envFile.readLines()
+            .firstOrNull { it.startsWith("ANTHROPIC_API_KEY=") }
+            ?.removePrefix("ANTHROPIC_API_KEY=")
+            ?.trim()
+            .orEmpty()
+    } else ""
+}
+
 android {
     namespace = "com.medusa.mobile"
     compileSdk = 36
@@ -18,6 +32,10 @@ android {
         versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // mm-env-001: Expose API key to app via BuildConfig.ANTHROPIC_API_KEY
+        // Empty string if .env not present (user will enter key in Settings).
+        buildConfigField("String", "ANTHROPIC_API_KEY", "\"$envApiKey\"")
     }
 
     buildTypes {
@@ -108,6 +126,11 @@ dependencies {
     }
     implementation("com.google.apis:google-api-services-docs:v1-rev20260323-2.0.0")
     implementation("com.google.apis:google-api-services-drive:v3-rev20260322-2.0.0")
+
+    // ── Email / IMAP (mm-016: IMAP fallback for iCloud, Yahoo, Outlook) ─
+    // android-mail is the JavaMail port for Android (javax.mail API, SSL/TLS IMAP)
+    implementation("com.sun.mail:android-mail:1.6.7")
+    implementation("com.sun.mail:android-activation:1.6.7")
 
     // ── Testing ──────────────────────────────────────────────────────
     testImplementation("junit:junit:4.13.2")

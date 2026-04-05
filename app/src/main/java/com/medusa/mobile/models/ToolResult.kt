@@ -192,3 +192,81 @@ data class AppLaunchResultDTO(
     val packageName: String,     // resolved package that was launched
     val appName: String          // display name of the launched app
 )
+
+// ── Intent Tool DTOs (mm-025) ────────────────────────────────────────────────
+
+@Serializable
+data class IntentResultDTO(
+    val action: String,          // "call", "dial", "timer", "settings", "share"
+    val target: String,          // phone number, duration, panel name, or text preview
+    val launched: Boolean        // true if the intent was successfully dispatched
+)
+
+@Serializable
+data class AlarmResultDTO(
+    val hour: Int,               // 0–23
+    val minutes: Int,            // 0–59
+    val label: String?,          // optional alarm label
+    val repeating: Boolean       // true if days were specified
+)
+
+// ── Photos / Media DTOs (mm-018) ─────────────────────────────────────────────
+
+@Serializable
+data class PhotoDTO(
+    val id: Long,
+    val displayName: String,     // file name, e.g. "IMG_20240715_143022.jpg"
+    val album: String,           // bucket/album name, e.g. "Camera", "Screenshots"
+    val dateTaken: String?,      // "2024-07-15 14:30:22" or null
+    val dateModified: String?,   // "2024-07-15 14:30:25" or null
+    val sizeBytes: Long,         // file size in bytes (or photo count for album entries)
+    val widthPx: Int,            // image width in pixels
+    val heightPx: Int,           // image height in pixels
+    val mimeType: String,        // "image/jpeg", "image/png", etc.
+    val contentUri: String       // "content://media/external/images/media/<id>"
+)
+
+@Serializable
+data class PhotoListDTO(
+    val count: Int,
+    val photos: List<PhotoDTO>,
+    val note: String? = null     // optional annotation (e.g. for album mode)
+)
+
+// ── Device Utilities DTOs (mm-026) ───────────────────────────────────────────
+
+@Serializable
+data class ClipboardDTO(
+    val text: String?,           // clipboard text content, or null if empty/non-text
+    val empty: Boolean,          // true if clipboard has no readable text
+    val label: String?           // optional label set when the clip was created
+)
+
+@Serializable
+data class BatteryDTO(
+    val percentage: Int,         // 0–100
+    val chargingStatus: String,  // "charging", "discharging", "full", "not charging"
+    val plugged: String,         // "AC charger", "USB", "wireless", "not charging"
+    val temperatureCelsius: Double?, // battery temp in °C, or null if unavailable
+    val health: String           // "good", "overheating", "dead", "cold", etc.
+)
+
+@Serializable
+data class FlashlightDTO(
+    val on: Boolean,             // true if torch is now on, false if off
+    val cameraId: String         // Camera2 camera ID used for the torch
+)
+
+@Serializable
+data class DeviceInfoDTO(
+    val manufacturer: String,    // e.g. "Samsung", "Google"
+    val model: String,           // e.g. "Pixel 8 Pro", "SM-S918B"
+    val brand: String,           // e.g. "google", "samsung"
+    val androidVersion: String,  // e.g. "14"
+    val sdkLevel: Int,           // e.g. 34
+    val screenWidthDp: Int,
+    val screenHeightDp: Int,
+    val screenDensityDpi: Int,
+    val screenWidthPx: Int,
+    val screenHeightPx: Int
+)

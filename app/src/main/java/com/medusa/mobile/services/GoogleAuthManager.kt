@@ -19,6 +19,8 @@ package com.medusa.mobile.services
 
 import android.content.Context
 import android.content.Intent
+import com.google.android.gms.auth.GoogleAuthException
+import com.google.android.gms.auth.UserRecoverableAuthException
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
@@ -27,6 +29,9 @@ import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.common.api.Scope
 import com.google.android.gms.tasks.Task
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 
 /**
@@ -44,6 +49,10 @@ class GoogleAuthManager(private val context: Context) {
         const val SCOPE_DOCS = "https://www.googleapis.com/auth/documents"
         const val SCOPE_DRIVE_FILE = "https://www.googleapis.com/auth/drive.file"
         const val SCOPE_DRIVE_READONLY = "https://www.googleapis.com/auth/drive.readonly"
+        // Gmail scope — must be in sign-in options so it's granted during consent
+        const val SCOPE_GMAIL = "https://www.googleapis.com/auth/gmail.modify"
+        // Sheets scope — must be in sign-in options so it's granted during consent
+        const val SCOPE_SHEETS = "https://www.googleapis.com/auth/spreadsheets"
     }
 
     private val signInClient: GoogleSignInClient by lazy {
@@ -52,7 +61,13 @@ class GoogleAuthManager(private val context: Context) {
             .requestScopes(
                 Scope(SCOPE_DOCS),
                 Scope(SCOPE_DRIVE_FILE),
-                Scope(SCOPE_DRIVE_READONLY)
+                Scope(SCOPE_DRIVE_READONLY),
+                // Gmail + Sheets scopes must be requested here so they're
+                // granted during the sign-in consent screen. Without this,
+                // GoogleAuthUtil.getToken() throws UserRecoverableAuthException
+                // even when the user IS signed in, causing false "not connected" prompts.
+                Scope(SCOPE_GMAIL),
+                Scope(SCOPE_SHEETS)
             )
             .build()
         GoogleSignIn.getClient(context, gso)
@@ -61,6 +76,20 @@ class GoogleAuthManager(private val context: Context) {
     // Cached access token (in-memory only — refreshed each session)
     @Volatile
     private var cachedToken: String? = null
+
+    // ── Re-auth signal ───────────────────────────────────────────────────
+    // Set to true when a tool call fails because the user hasn't granted
+    // the full scope set yet (UserRecoverableAuthException). The UI observes
+    // this to show an in-context consent dialog instead of sending the user
+    // to Settings. Cleared after the user completes re-consent.
+    private val _reAuthNeeded = MutableStateFlow(false)
+    val reAuthNeeded: StateFlow<Boolean> = _reAuthNeeded.asStateFlow()
+
+    /** Called by UI after the user taps "Allow" and the consent dialog finishes. */
+    fun clearReAuthNeeded() {
+        _reAuthNeeded.value = false
+        cachedToken = null  // force fresh token on next tool call
+    }
 
     // ── Sign-In Flow ────────────────────────────────────────────────────
 
@@ -102,14 +131,23 @@ class GoogleAuthManager(private val context: Context) {
             // Check for existing sign-in
             val account = GoogleSignIn.getLastSignedInAccount(context) ?: return@withContext null
 
-            // Get fresh access token using GoogleAuthUtil
+            // Get fresh access token using GoogleAuthUtil.
+            // All scopes (Docs, Drive, Gmail, Sheets) are bundled in a single token request —
+            // this avoids multiple consent screens and matches what was granted during sign-in.
             val token = com.google.android.gms.auth.GoogleAuthUtil.getToken(
                 context,
                 account.account!!,
-                "oauth2:$SCOPE_DOCS $SCOPE_DRIVE_FILE $SCOPE_DRIVE_READONLY"
+                "oauth2:$SCOPE_DOCS $SCOPE_DRIVE_FILE $SCOPE_DRIVE_READONLY $SCOPE_GMAIL $SCOPE_SHEETS"
             )
             cachedToken = token
             token
+        } catch (e: UserRecoverableAuthException) {
+            // User is signed in but hasn't granted the full scope set yet.
+            // Signal the UI to show an in-context consent dialog — do NOT navigate
+            // to Settings. The chat history is preserved; user returns here after Allow.
+            cachedToken = null
+            _reAuthNeeded.value = true
+            null
         } catch (e: Exception) {
             // Token might be expired — clear cache and return null
             cachedToken = null

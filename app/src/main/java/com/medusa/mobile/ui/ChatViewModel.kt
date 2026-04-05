@@ -18,11 +18,13 @@ package com.medusa.mobile.ui
 //   - No business logic in ChatScreen — all in ViewModel
 
 import android.app.Application
+import android.content.Intent
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.medusa.mobile.agent.AgentEvent
 import com.medusa.mobile.agent.AgentOrchestrator
 import com.medusa.mobile.agent.ToolDispatcher
+import com.medusa.mobile.BuildConfig
 import com.medusa.mobile.api.ApiKeyStore
 import com.medusa.mobile.api.ClaudeApiService
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -59,7 +61,13 @@ data class ChatUiState(
     val error: String? = null,
     val hasApiKey: Boolean = false,
     /** Total tokens used this session (input + output). */
-    val totalTokens: Int = 0
+    val totalTokens: Int = 0,
+    /**
+     * True when a Gmail/Sheets tool call failed because the user hasn't granted
+     * the new OAuth scopes yet. UI should show an in-context consent dialog.
+     * Chat history is fully preserved — user returns here after approving.
+     */
+    val googleReAuthNeeded: Boolean = false
 )
 
 // ── ViewModel ────────────────────────────────────────────────────────────────
@@ -77,8 +85,23 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val toolDispatcher = ToolDispatcher(context)
 
     init {
+        // mm-env-001: If no key stored yet but BuildConfig has one (from .env at build time),
+        // auto-save it now so refreshApiKeyState() sees it immediately — no user action needed.
+        if (!ApiKeyStore.hasApiKey(context) && BuildConfig.ANTHROPIC_API_KEY.isNotBlank()) {
+            ApiKeyStore.saveApiKey(context, BuildConfig.ANTHROPIC_API_KEY)
+        }
         // Check if API key exists on startup
         refreshApiKeyState()
+
+        // Observe GoogleAuthManager's re-auth signal.
+        // When a tool call encounters UserRecoverableAuthException (new scopes not yet granted),
+        // the auth manager sets reAuthNeeded = true. We mirror that into ChatUiState so
+        // ChatScreen can show an in-context consent dialog without navigating away.
+        viewModelScope.launch {
+            toolDispatcher.googleAuth.reAuthNeeded.collect { needed ->
+                _uiState.value = _uiState.value.copy(googleReAuthNeeded = needed)
+            }
+        }
     }
 
     // ── Public Actions ──────────────────────────────────────────────────
@@ -229,6 +252,32 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     /** Dismiss the current error. */
     fun dismissError() {
         _uiState.value = _uiState.value.copy(error = null)
+    }
+
+    // ── Google Re-Auth (mm-gmail-auth-001) ──────────────────────────────
+
+    /**
+     * Returns the Google Sign-In intent to launch for incremental consent.
+     * Call when [ChatUiState.googleReAuthNeeded] is true.
+     * Launch via ActivityResultLauncher — no navigation, chat history preserved.
+     */
+    fun getGoogleSignInIntent(): Intent = toolDispatcher.googleAuth.getSignInIntent()
+
+    /**
+     * Called after the user completes (or cancels) the Google consent dialog.
+     * Clears the re-auth signal so the dialog dismisses and the next tool
+     * call succeeds with the newly granted scopes.
+     */
+    fun onGoogleSignInResult(data: Intent?) {
+        // Process the sign-in result — updates the account in GoogleSignIn SDK
+        toolDispatcher.googleAuth.handleSignInResult(data)
+        // Clear the re-auth flag — next Gmail/Sheets call will get a fresh token
+        toolDispatcher.googleAuth.clearReAuthNeeded()
+    }
+
+    /** Dismiss the re-auth dialog without completing sign-in (user cancelled). */
+    fun dismissGoogleReAuth() {
+        toolDispatcher.googleAuth.clearReAuthNeeded()
     }
 
     /** Call after saving API key in Settings to refresh the orchestrator. */

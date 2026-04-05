@@ -27,6 +27,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import com.medusa.mobile.BuildConfig
 import com.medusa.mobile.api.ApiKeyStore
 import com.medusa.mobile.services.NotificationReaderService
 import com.medusa.mobile.ui.components.GlassCard
@@ -69,11 +70,15 @@ fun SettingsScreen(
     // ── Permission state ───────────────────────────────────────────
     var notifEnabled by remember { mutableStateOf(NotificationReaderService.isEnabled(context)) }
 
-    // Load masked key on first compose
+    // Load masked key on first compose.
+    // mm-env-001: ChatViewModel.init already auto-saved the BuildConfig key to ApiKeyStore
+    // if none was present. We just read whatever is stored (covers both manual entry and
+    // .env bootstrap). keyIsStored is refreshed so the UI reflects the saved state.
     LaunchedEffect(Unit) {
         val stored = ApiKeyStore.getApiKey(context)
         if (stored != null) {
             apiKeyInput = maskKey(stored)
+            keyIsStored = true
         }
     }
 
