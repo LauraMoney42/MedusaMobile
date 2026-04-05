@@ -73,7 +73,11 @@ android {
                 "META-INF/INDEX.LIST",
                 "META-INF/DEPENDENCIES",
                 "META-INF/LICENSE.md",
-                "META-INF/NOTICE.md"
+                "META-INF/NOTICE.md",
+                // MockK pulls in JUnit 5 which has conflicting license files
+                "META-INF/LICENSE-notice.md",
+                "META-INF/LICENSE.txt",
+                "META-INF/NOTICE.txt"
             )
         }
     }
@@ -134,5 +138,15 @@ dependencies {
 
     // ── Testing ──────────────────────────────────────────────────────
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+    testImplementation("io.mockk:mockk:1.13.10")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test:rules:1.6.1")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
+    androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+    androidTestImplementation("io.mockk:mockk-android:1.13.10")
 }
