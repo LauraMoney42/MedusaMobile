@@ -99,11 +99,26 @@ class GoogleAuthManager(private val context: Context) {
      */
     fun getReAuthIntent(): Intent = pendingAuthIntent ?: signInClient.signInIntent
 
-    /** Called by UI after the consent activity finishes. Clears the signal and cached token. */
+    /**
+     * Called by UI after the consent activity finishes. Clears the signal and forces
+     * a fresh token fetch on the next tool call.
+     *
+     * Also invalidates any cached token in Play Services so that stale "denied" state
+     * is cleared — without this, Play Services can serve a cached denial even after
+     * the user grants permission, causing UserRecoverableAuthException on the next call.
+     */
     fun clearReAuthNeeded() {
         _reAuthNeeded.value = false
         pendingAuthIntent = null
-        cachedToken = null  // force fresh token fetch on next tool call
+        // Invalidate cached token in Play Services (best-effort — runs on calling thread).
+        // This ensures the next getToken() call fetches a truly fresh token from Google's
+        // servers, not a stale cached result from before the user granted consent.
+        cachedToken?.let { staleToken ->
+            try {
+                com.google.android.gms.auth.GoogleAuthUtil.invalidateToken(context, staleToken)
+            } catch (_: Exception) { /* best-effort — ignore */ }
+        }
+        cachedToken = null
     }
 
     // ── Sign-In Flow ────────────────────────────────────────────────────
@@ -142,25 +157,31 @@ class GoogleAuthManager(private val context: Context) {
      * Returns null if not signed in — caller should prompt sign-in.
      */
     suspend fun getAccessToken(): String? = withContext(Dispatchers.IO) {
+        val scopeString = "oauth2:$SCOPE_DOCS $SCOPE_DRIVE_FILE $SCOPE_DRIVE_READONLY $SCOPE_GMAIL $SCOPE_SHEETS"
         try {
             // Check for existing sign-in.
-            // If no account found (never signed in, or signed out), signal the UI
-            // to show the in-context sign-in dialog — same path as UserRecoverableAuthException.
             val account = GoogleSignIn.getLastSignedInAccount(context)
             if (account == null) {
-                // No account: user needs to sign in. Use the standard sign-in intent.
                 pendingAuthIntent = signInClient.signInIntent
                 _reAuthNeeded.value = true
                 return@withContext null
             }
 
-            // Get fresh access token using GoogleAuthUtil.
-            // All scopes (Docs, Drive, Gmail, Sheets) are bundled in a single token request —
-            // this avoids multiple consent screens and matches what was granted during sign-in.
+            // account.account (the underlying Android Account) can be null on some devices
+            // when the Google account sync is broken or the account was removed from Settings.
+            // Treat this as a sign-in failure — prompt re-sign-in via the standard flow.
+            val androidAccount = account.account
+            if (androidAccount == null) {
+                pendingAuthIntent = signInClient.signInIntent
+                _reAuthNeeded.value = true
+                return@withContext null
+            }
+
+            // Get fresh access token. All scopes bundled in one request.
             val token = com.google.android.gms.auth.GoogleAuthUtil.getToken(
                 context,
-                account.account!!,
-                "oauth2:$SCOPE_DOCS $SCOPE_DRIVE_FILE $SCOPE_DRIVE_READONLY $SCOPE_GMAIL $SCOPE_SHEETS"
+                androidAccount,
+                scopeString
             )
             cachedToken = token
             token
@@ -174,8 +195,14 @@ class GoogleAuthManager(private val context: Context) {
             pendingAuthIntent = e.intent
             _reAuthNeeded.value = true
             null
+        } catch (e: GoogleAuthException) {
+            // Auth-specific error (bad client ID, account issue, etc.) — prompt re-sign-in
+            cachedToken = null
+            pendingAuthIntent = signInClient.signInIntent
+            _reAuthNeeded.value = true
+            null
         } catch (e: Exception) {
-            // Token might be expired — clear cache and return null
+            // Non-auth error (network, IO, etc.) — clear cache but don't show auth dialog
             cachedToken = null
             null
         }
