@@ -257,11 +257,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     // ── Google Re-Auth (mm-gmail-auth-001) ──────────────────────────────
 
     /**
-     * Returns the Google Sign-In intent to launch for incremental consent.
-     * Call when [ChatUiState.googleReAuthNeeded] is true.
-     * Launch via ActivityResultLauncher — no navigation, chat history preserved.
+     * Returns the correct intent to launch for re-auth.
+     * May be a UserRecoverableAuthException intent (OAuth2 scope grant) OR a
+     * sign-in intent (first-time). Always use this — never getSignInIntent() directly.
+     * Launching the wrong intent won't grant scopes and auth will keep failing.
      */
-    fun getGoogleSignInIntent(): Intent = toolDispatcher.googleAuth.getSignInIntent()
+    fun getGoogleSignInIntent(): Intent = toolDispatcher.googleAuth.getReAuthIntent()
 
     /**
      * Called after the user completes (or cancels) the Google consent dialog.

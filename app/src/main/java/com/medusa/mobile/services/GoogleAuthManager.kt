@@ -78,17 +78,32 @@ class GoogleAuthManager(private val context: Context) {
     private var cachedToken: String? = null
 
     // ── Re-auth signal ───────────────────────────────────────────────────
-    // Set to true when a tool call fails because the user hasn't granted
-    // the full scope set yet (UserRecoverableAuthException). The UI observes
-    // this to show an in-context consent dialog instead of sending the user
-    // to Settings. Cleared after the user completes re-consent.
+    // Set to true when a tool call needs user interaction to complete auth.
+    // Two cases trigger this:
+    //   1. No account (never signed in / signed out) → pendingAuthIntent = signInClient.signInIntent
+    //   2. UserRecoverableAuthException → pendingAuthIntent = e.intent (the OAuth2 grant screen)
+    // IMPORTANT: case 2 requires launching e.intent specifically — it IS the permission grant
+    // screen. Launching signInClient.signInIntent in case 2 shows the account picker, which
+    // completes without granting the new scopes, so getToken() keeps throwing the same exception.
     private val _reAuthNeeded = MutableStateFlow(false)
     val reAuthNeeded: StateFlow<Boolean> = _reAuthNeeded.asStateFlow()
 
-    /** Called by UI after the user taps "Allow" and the consent dialog finishes. */
+    // Holds the correct intent to launch for the current re-auth scenario.
+    // Must be launched by the UI — not signInClient.signInIntent (which won't grant scopes).
+    @Volatile private var pendingAuthIntent: Intent? = null
+
+    /**
+     * Returns the intent to launch for re-auth. Always use this instead of getSignInIntent()
+     * when responding to a reAuthNeeded signal — it may be a scope-grant intent from a
+     * UserRecoverableAuthException, not a sign-in intent.
+     */
+    fun getReAuthIntent(): Intent = pendingAuthIntent ?: signInClient.signInIntent
+
+    /** Called by UI after the consent activity finishes. Clears the signal and cached token. */
     fun clearReAuthNeeded() {
         _reAuthNeeded.value = false
-        cachedToken = null  // force fresh token on next tool call
+        pendingAuthIntent = null
+        cachedToken = null  // force fresh token fetch on next tool call
     }
 
     // ── Sign-In Flow ────────────────────────────────────────────────────
@@ -133,6 +148,8 @@ class GoogleAuthManager(private val context: Context) {
             // to show the in-context sign-in dialog — same path as UserRecoverableAuthException.
             val account = GoogleSignIn.getLastSignedInAccount(context)
             if (account == null) {
+                // No account: user needs to sign in. Use the standard sign-in intent.
+                pendingAuthIntent = signInClient.signInIntent
                 _reAuthNeeded.value = true
                 return@withContext null
             }
@@ -148,10 +165,13 @@ class GoogleAuthManager(private val context: Context) {
             cachedToken = token
             token
         } catch (e: UserRecoverableAuthException) {
-            // User is signed in but hasn't granted the full scope set yet.
-            // Signal the UI to show an in-context consent dialog — do NOT navigate
-            // to Settings. The chat history is preserved; user returns here after Allow.
+            // Signed in but scopes not yet granted.
+            // CRITICAL: e.intent is the specific OAuth2 permission grant screen for the
+            // denied scope. This is NOT the same as signInClient.signInIntent. Launching
+            // the wrong intent (sign-in picker) completes without granting the scope, so
+            // getToken() keeps throwing this exception on every attempt.
             cachedToken = null
+            pendingAuthIntent = e.intent
             _reAuthNeeded.value = true
             null
         } catch (e: Exception) {
